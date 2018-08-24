@@ -43,3 +43,9 @@ deprecated/
 .Trashes
 ehthumbs.db
 Thumbs.db
+/data/
+.idea/inspectionProfiles/
+.idea/misc.xml
+.idea/modules.xml
+.idea/the_original_problem_private.iml
+.idea/workspace.xml

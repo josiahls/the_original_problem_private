@@ -9,29 +9,29 @@
 ##    the util module in this repository. Note that if you make any changes to your local 
 ##    util module, these won't be reflected in the util module that is imported by the 
 ##    auto grading algorithm. 
-## 4. Anti-plagarism checks will be run on your submission
+## 4. Anti-plagiarism checks will be run on your submission
 ##
 ##
 ## ---------------------------- ##
 
 
 import numpy as np
-#It's kk to import whatever you want from the local util module if you would like:
-#from util.X import ... 
+
+
+# It's kk to import whatever you want from the local util module if you would like:
+# from util.X import ...
 
 def classify(im):
-    '''
-    Example submission for coding challenge. 
-    
-    Args: im (nxmx3) unsigned 8-bit color image 
-    Returns: One of three strings: 'brick', 'ball', or 'cylinder'
-    
-    '''
-    
-    
+    """
+    Example submission for coding challenge.
 
-    #Let's guess randomly! Maybe we'll get lucky.
+    Args: im (nxmx3) unsigned 8-bit color image
+    Returns: One of three strings: 'brick', 'ball', or 'cylinder'
+
+    """
+
+    # Let's guess randomly! Maybe we'll get lucky.
     labels = ['brick', 'ball', 'cylinder']
-    random_integer = np.random.randint(low = 0, high = 3)
-    
+    random_integer = np.random.randint(low=0, high=3)
+
     return labels[random_integer]
