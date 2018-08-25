@@ -19,7 +19,7 @@ class Logger(object):
     def show_full(self):
         print(str(self.log))
 
-    def show_overall_analysis(self):
+    def show_overall_analysis(self, show_as_percent=True):
         accuracy_easy = self.__get_accuracy('easy')
         accuracy_medium_1 = self.__get_accuracy('medium_1')
         accuracy_medium_2 = self.__get_accuracy('medium_2')
@@ -27,7 +27,16 @@ class Logger(object):
 
         overall_accuracy = 0.5 * accuracy_easy + 0.2 * accuracy_medium_1 + 0.2 * accuracy_medium_2 + 0.1 * accuracy_hard
 
-        print('Current Run Accuracy')
+        if show_as_percent:
+            accuracy_easy *= 100
+            accuracy_medium_1 *= 100
+            accuracy_medium_2 *= 100
+            accuracy_hard *= 100
+            overall_accuracy *= 100
+            print('Current Run Accuracy Percents %')
+        else:
+            print('Current Run Accuracy')
+
         print(f'\taccuracy_easy: {accuracy_easy}')
         print(f'\taccuracy_medium_1: {accuracy_medium_1}')
         print(f'\taccuracy_medium_2: {accuracy_medium_2}')
