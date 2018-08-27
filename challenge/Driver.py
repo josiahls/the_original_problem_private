@@ -21,7 +21,7 @@ class Tester(object):
         # Specify file types that access
         CATEGORY_LIST = ['easy']
         OBJECT_TYPE = ['ball', 'brick', 'cylinder']
-        FILE_NAME = []#['ball_1.jpg', 'ball_2.jpg', 'brick_1.jpg', 'brick_2.jpg', 'cylinder_1.jpg', 'cylinder_2.jpg']
+        FILE_NAME = ['ball_1.jpg', 'ball_2.jpg', 'brick_1.jpg', 'brick_2.jpg', 'cylinder_1.jpg', 'cylinder_2.jpg']
 
         self.LOG = {
             'easy': copy.deepcopy(self.CATEGORIES),
@@ -38,10 +38,12 @@ class Tester(object):
         # For each category: easy, medium_1, medium_2, hard
         category_list = os.listdir(self.data_dir) if not category_list else category_list
         for category in category_list:
+            print(f'Working through: {category}')
             category_path = self.data_dir + os.sep + category
             object_type_list = os.listdir(category_path) if not object_type else object_type
             # For each type: ball, brick, cylinder:
             for image_type in object_type_list:
+                print(f'Working through: {image_type}')
                 type_path = category_path + os.sep + image_type
                 image_list = os.listdir(type_path) if not file_name else file_name
                 # For each image
@@ -52,8 +54,6 @@ class Tester(object):
                     except FileNotFoundError:
                         continue
 
-                    gray_scale_im = image.convert_to_grayscale(im)
-                    # data.append([image_type, np.histogram(im, bins=255)[0]])
                     data.append([image_type, im])
 
         clf = K_Means(labels=object_type)
@@ -64,10 +64,12 @@ class Tester(object):
         # For each category: easy, medium_1, medium_2, hard
         category_list = os.listdir(self.data_dir) if not category_list else category_list
         for category in category_list:
+            print(f'Working through: {category}')
             category_path = self.data_dir + os.sep + category
             object_type_list = os.listdir(category_path) if not object_type else object_type
             # For each type: ball, brick, cylinder:
             for image_type in object_type_list:
+                print(f'Working through: {image_type}')
                 type_path = category_path + os.sep + image_type
                 image_list = os.listdir(type_path) if not file_name else file_name
                 # For each image
@@ -78,7 +80,6 @@ class Tester(object):
                     except FileNotFoundError:
                         continue
 
-                    gray_scale_im = image.convert_to_grayscale(im)
                     # prediction = model.predict(np.histogram(im, bins=255)[0]) == image_type
                     prediction = model.predict(im) == image_type
                     self.LOG[category][image_type].append(prediction)

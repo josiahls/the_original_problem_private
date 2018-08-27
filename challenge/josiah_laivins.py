@@ -20,6 +20,14 @@ from util import filters
 from util.hough_accumulator import HoughAccumulator
 from util import image
 
+CONSTANTS = {
+    'IS_CURVE': 1,
+    'CURVE_THRESH': 15,
+    'CURVE_ACCUMULATOR_THRESH': 10,
+    'LINE_ACCUMULATOR_THRESH': 90,
+    'LINE_THRESH': 6,
+}
+
 
 # It's kk to import whatever you want from the local util module if you would like:
 # from util.X import ...
@@ -78,59 +86,66 @@ class K_Means(object):
         :param data:
         :return:
         """
-        for channel in range(data[0][1].shape[2]):
+        # Convert Data to the expected format
+        # data = [{d[0]:self.convert(d[1])} for d in data]
+        data = list(map(lambda x: [x[0], self.convert(x[1])], data))
 
-            # Get the starting centroids for this respective channel
-            self.centroids[channel] = {label: [data[[f[0] for f in data].index(label)][0]] +
-                                              [data[[f[0] for f in data].index(label)][1][:, :, channel]]
-                                       for label in self.labels}
+        # Get the starting centroids for this respective channel
+        self.centroids = {label: [data[[f[0] for f in data].index(label)][0]] +
+                                 [data[[f[0] for f in data].index(label)][1]]
+                          for label in self.labels}
 
-            # Get those centroids as histograms
-            self.centroids[channel] = {label: np.histogram(self.centroids[channel][label][1], bins=255)[0]
-                                       for label in self.centroids[channel]}
+        # Get those centroids as histograms
+        self.centroids = {label: self.centroids[label][1]
+                          for label in self.centroids}
 
-            for i in range(self.max_iter):
-                print(f"Inter: {i} for channel: {channel}")
-                self.classifications = {}
+        for i in range(self.max_iter):
+            print(f'Iteration: {i}')
+            self.classifications = {}
 
-                # Init all recorded classifications
-                for j in range(self.k):
-                    self.classifications[self.labels[j]] = []
+            # Init all recorded classifications
+            for j in range(self.k):
+                self.classifications[self.labels[j]] = []
+            print('Setting Features')
+            for feature_set in data:
+                # feature set is a single histogram
+                # distances = [np.linalg.norm(feature_set[1] - self.centroids[centroid][1]) for centroid in self.centroids]
+                # classification = self.labels[distances.index(min(distances))]
+                features = feature_set[1]
+                self.classifications[feature_set[0]].append(features)
 
-                for feature_set in data:
-                    # feature set is a single histogram
-                    # distances = [np.linalg.norm(feature_set[1] - self.centroids[centroid][1]) for centroid in self.centroids]
-                    # classification = self.labels[distances.index(min(distances))]
-                    feature_hist = np.histogram(feature_set[1][:, :, channel], bins=255)[0]
-                    self.classifications[feature_set[0]].append(feature_hist)
+            # Get the previous centroid
+            prev_centroids = {centroid: np.copy(self.centroids[centroid]) for centroid in self.centroids}
+            print('Setting Centroids')
+            # Set the new centroids
+            for classification in self.classifications:
+                # This is where the centroids get changed. Originally, they would separate based on
+                # center of groups, however I need to differentiate this more.
+                all_classifications = []
+                for c in self.classifications:
+                    all_classifications += self.classifications[c]
 
-                prev_centroids = {centroid: np.copy(self.centroids[channel][centroid])
-                                  for centroid in self.centroids[channel]}
+                # Right now: category average - all average = noiseless full diff
+                self.centroids[classification] = np.average(self.classifications[classification], axis=0)
 
-                for classification in self.classifications:
-                    # This is where the centroids get changed. Originally, they would separate based on
-                    # center of groups, however I need to differentiate this more.
-                    all_classifications = []
-                    for c in self.classifications:
-                        all_classifications += self.classifications[c]
-
-                    # Right now: category average - all average = noiseless full diff
-                    self.centroids[channel][classification] = np.average(self.classifications[classification], axis=0)
-
-                    # Set all negative values to 0
-                    self.centroids[channel][classification][self.centroids[channel][classification] < 0] = 0
-
-                optimized = True
-                for c in self.centroids[channel]:
-                    original_centroid = prev_centroids[c]
-                    current_centroid = self.centroids[channel][c]
-                    if np.sum((current_centroid[1] - original_centroid[1]) / (original_centroid[1] + 0.001) *
-                              100.0) > self.tol:
-                        print(np.sum((current_centroid[1] - original_centroid[1]) / (original_centroid[1] + 0.001)
-                                     * 100.0))
-                        optimized = False
-                if optimized:
-                    break
+            # Remove noise from those centroids (keeping only common values for each class)
+            # temp = {centroid: np.copy(self.centroids[centroid]) for centroid in self.centroids}
+            # for c in self.centroids:
+            #     for other in [others for others in self.centroids if others != c]:
+            #         self.centroids[c] -= temp[other]
+            #     self.centroids[c][self.centroids[c] < 0] = 0
+            print('Optimizing Centroids')
+            optimized = True
+            for c in self.centroids:
+                original_centroid = prev_centroids[c]
+                current_centroid = self.centroids[c]
+                if np.sum((current_centroid - original_centroid) / (original_centroid + 0.001) *
+                          100.0) > self.tol:
+                    print(np.sum((current_centroid - original_centroid) / (original_centroid + 0.001) * 100.0))
+                    optimized = False
+            if optimized:
+                break
+        print("Hello")
 
     def predict(self, data: np.array):
         """
@@ -147,13 +162,95 @@ class K_Means(object):
         :param data:
         :return:
         """
-        distances = [i for i in range(data.shape[2])]
-        for channel in range(data.shape[2]):
-            distances[channel] = [np.linalg.norm(np.histogram(data[:, :, channel], bins=255)[0] -
-                                                 self.centroids[channel][centroid][1])
-                                  for centroid in self.centroids[channel]]
-
-        distances = np.average(distances, axis=0)
-        distances = [int(_) for _ in distances]
-        classification = self.labels[distances.index(int(min(distances)))]
+        converted_data = self.convert(data)
+        distances = [np.linalg.norm(converted_data - self.centroids[centroid])
+                     for centroid in self.centroids]
+        classification = self.labels[distances.index(min(distances))]
         return classification
+
+    # def convert(self, im) -> np.array:
+    #     """ General image conversion method"""
+    #     return np.histogram(im, bins=255)[0]
+
+    def convert(self, im) -> np.array:
+        """ Curve, Line Tally image conversion method"""
+        print('Converting...')
+        ### Convert Image to gray
+        gray_im = image.convert_to_grayscale(im / 255)
+        ### Implement Sobel kernels as numpy arrays
+        Kx = np.array([[1, 0, -1],
+                       [2, 0, -2],
+                       [1, 0, -1]])
+
+        Ky = np.array([[1, 2, 1],
+                       [0, 0, 0],
+                       [-1, -2, -1]])
+        Gx = filters.filter_2d(gray_im, Kx)
+        Gy = filters.filter_2d(gray_im, Ky)
+        # Compute Gradient Magnitude and Direction:
+        G_magnitude = np.sqrt(Gx ** 2 + Gy ** 2)
+        ### Set up the accumulator
+        # How many bins for each variable in parameter space?
+        phi_bins = 128
+        theta_bins = 128
+        edge_im = G_magnitude > 1.0
+        rho_min = -edge_im.shape[0]
+        rho_max = edge_im.shape[1]
+        # Compute the rho and theta values for the grids in our accumulator:
+        ha = HoughAccumulator(theta_bins, phi_bins, phi_min=rho_min, phi_max=rho_max)
+        y_coords, x_coords = np.where(edge_im)
+        accumulator = ha.accumulate(x_coords, y_coords)
+        ### Set up curve and line detection
+        y_coords, x_coords = np.where((accumulator > CONSTANTS['CURVE_ACCUMULATOR_THRESH']) &
+                                      (accumulator < CONSTANTS['LINE_ACCUMULATOR_THRESH']))
+        curves = self.count_curves(y_coords, x_coords)
+        y_coords, x_coords = np.where(accumulator > CONSTANTS['LINE_ACCUMULATOR_THRESH'])
+        lines = self.count_lines(y_coords, x_coords)
+        print('Done!')
+        return [curves, lines]
+
+    def count_curves(self, line_detected_accumulator):
+        phi_bins = 128
+        theta_bins = 128
+        rho_min = -line_detected_accumulator.shape[0]
+        rho_max = line_detected_accumulator.shape[1]
+        # Compute the rho and theta values for the grids in our accumulator:
+        ha = HoughAccumulator(theta_bins, phi_bins, phi_min=rho_min, phi_max=rho_max)
+        y_coords, x_coords = np.where(line_detected_accumulator)
+        accumulator = ha.accumulate(x_coords, y_coords)
+
+        return np.sum(accumulator > 10)
+
+    # def count_curves(self, y_coords: list, x_coords: list):
+    #     groups = []
+    #     # Group the lines together
+    #     for y, x in zip(y_coords, x_coords):
+    #         is_in = False
+    #         # If the x and y are in a group (or close)
+    #         for i, group in enumerate(groups):
+    #             if x in [_[1] for _ in group] or any([abs(_[1] - x) == 1 for _ in group]) and \
+    #                y in [_[0] for _ in group] or any([abs(_[0] - y) == 1 for _ in group]):
+    #                 groups[i].append([y, x])
+    #                 is_in = True
+    #                 break
+    #         if not is_in:
+    #             groups.append([[y, x]])
+    #
+    #     return len([group for group in groups if len(group) > CONSTANTS['CURVE_THRESH']
+    #                 and self.is_curve(group)])
+
+    def count_lines(self, y_coords: list, x_coords: list):
+        groups = []
+        for y, x in zip(y_coords, x_coords):
+            is_in = False
+            # If the x and y are in a group (or close)
+            for i, group in enumerate(groups):
+                if x in [_[1] for _ in group] or any([abs(_[1] - x) == 1 for _ in group]) and \
+                   y in [_[0] for _ in group] or any([abs(_[0] - y) == 1 for _ in group]):
+                    groups[i].append([y, x])
+                    is_in = True
+                    break
+            if not is_in:
+                groups.append([[y, x]])
+
+        return len([group for group in groups if len(group) < CONSTANTS['LINE_THRESH']])
