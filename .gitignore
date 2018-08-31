@@ -24,7 +24,6 @@ __pycache__
 
 # Larger Files downloaded from elsewhere #
 #########################################
-data/
 videos/
 deprecated/
 
@@ -43,7 +42,6 @@ deprecated/
 .Trashes
 ehthumbs.db
 Thumbs.db
-/data/
 .idea/inspectionProfiles/
 .idea/misc.xml
 .idea/modules.xml
