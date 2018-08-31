@@ -6,12 +6,22 @@ class Logger(object):
         self.log = log
         self.accuracy = {}
         self.prev_accuracy = {}
+        self.batch = {}
+        self.prev_batch_accuracy = {}
 
         # Try loading a previous run. This will allow making comparisons
         try:
             self.prev_accuracy = pickle.load(open('prev_accuracy.pickle', 'rb'))
         except IOError:
             print('There is no previous run.')
+
+        try:
+            self.prev_batch_accuracy = pickle.load(open('prev_batch_accuracy.pickle', 'rb'))
+        except IOError:
+            print('There is no previous batch run.')
+
+    def set_log(self, log: dict):
+        self.log = log
 
     def print_all(self):
         self.show_overall_analysis()
@@ -60,9 +70,37 @@ class Logger(object):
         else:
             print("The current run or the pre run is not set.")
 
+    def show_batch(self):
+        for batch in self.batch:
+            accuracy = self.batch[batch]
+            print(f'Accuracy for Params: {batch}')
+            print(f'\taccuracy_easy: {accuracy["accuracy_easy"]}')
+            print(f'\taccuracy_medium_1: {accuracy["accuracy_medium_1"]}')
+            print(f'\taccuracy_medium_2: {accuracy["accuracy_medium_2"]}')
+            print(f'\taccuracy_hard: {accuracy["accuracy_hard"]}')
+            print(f'\toverall_accuracy: {accuracy["overall_accuracy"]}')
+
+    def show_prev_batch(self):
+        for batch in self.prev_batch_accuracy:
+            accuracy = self.prev_batch_accuracy[batch]
+            print(f'Accuracy for Params: {batch}')
+            print(f'\taccuracy_easy: {accuracy["accuracy_easy"]}')
+            print(f'\taccuracy_medium_1: {accuracy["accuracy_medium_1"]}')
+            print(f'\taccuracy_medium_2: {accuracy["accuracy_medium_2"]}')
+            print(f'\taccuracy_hard: {accuracy["accuracy_hard"]}')
+            print(f'\toverall_accuracy: {accuracy["overall_accuracy"]}')
+
+    def set_batch(self, key: str):
+        self.batch[key] = {}
+        self.batch[key] = self.accuracy
+
     def save(self):
         file = open('prev_accuracy.pickle', 'wb')
         pickle.dump(self.accuracy, file, pickle.HIGHEST_PROTOCOL)
+
+    def batch_save(self):
+        file = open('prev_batch_accuracy.pickle', 'wb')
+        pickle.dump(self.batch, file, pickle.HIGHEST_PROTOCOL)
 
     def __get_accuracy(self, category):
         total_true = sum([self.log[category][image_type].count(True) for image_type in [_ for _ in self.log[category]]])
