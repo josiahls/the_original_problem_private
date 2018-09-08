@@ -49,6 +49,14 @@ Easy has a very high average.
 
 I propose at least a way for filtering image thresholds based on this.
 
+
+I propose using fa variable called: average curve and line directions distribution.
+Prediction:
+brick: uneven dist
+cylinder: partial dist
+ball: even dist
+
+
 """
 
 import numpy as np
@@ -108,7 +116,7 @@ class K_Means(object):
         self.centroids = {}  # {label: (np.random.random_integers(0, 100)) for label in self.labels}
         self.classifications = {}
 
-    def fit(self, data: list):
+    def fit(self, data: list, type=''):
         """
         fit will take in a data variable as such:
 
@@ -119,7 +127,12 @@ class K_Means(object):
         """
         # Convert Data to the expected format
         # data = [{d[0]:self.convert(d[1])} for d in data]
-        data = list(map(lambda x: [x[0], self.convert(x[1])], data))
+        data = list(map(lambda x: [x[0], self.convert(x[1], x[2])], data))
+
+        # Fill data with dummy data if there is missing data
+        for label in self.labels:
+            if label not in [f[0] for f in data]:
+                data.append([label, [0,0]])
 
         # Get the starting centroids for this respective channel
         self.centroids = {label: [data[[f[0] for f in data].index(label)][0]] +
@@ -205,7 +218,66 @@ class K_Means(object):
     #     """ General image conversion method"""
     #     return np.histogram(im, bins=255)[0]
 
-    def convert(self, im) -> np.array:
+    def entropy_of_im(self, im: np.array):
+        """
+        Code for this is found here:
+        https://www.hdm-stuttgart.de/~maucher/Python/MMCodecs/html/basicFunctions.html
+        :param im:
+        :return:
+        """
+        im = np.copy(im)
+        N = 30
+        dimensions = im.shape
+        # for row in range(dimensions[0]):
+        #     for col in range(dimensions[1]):
+        #         Lx = np.max([0, col - N])
+        #         Ux = np.min([dimensions[1], col + N])
+        #         Ly = np.max([0, row - N])
+        #         Uy = np.min([dimensions[0], row + N])
+        #         region = im[Ly:Uy,Lx:Ux].flatten()
+        #         im[row, col] = self.entropy(region)
+
+        def get_region(im, col, row, N):
+            Lx = np.max([0, col - N])
+            Ux = np.min([dimensions[1], col + N])
+            Ly = np.max([0, row - N])
+            Uy = np.min([dimensions[0], row + N])
+            return im[Ly:Uy, Lx:Ux].flatten()
+
+        im = [[self.entropy(get_region(im, col, row, N)) for col in range(0, dimensions[1], N)]
+              for row in range(0, dimensions[0], N)]
+
+        return np.array(im)
+
+    def entropy(self, signal):
+        '''
+        Code for this is found here:
+        https://www.hdm-stuttgart.de/~maucher/Python/MMCodecs/html/basicFunctions.html
+
+        function returns entropy of a signal
+        signal must be a 1-D numpy array
+        '''
+        lensig = signal.size
+        symset = list(set(signal))
+        numsym = len(symset)
+        propab = [np.size(signal[signal == i]) / (1.0 * lensig) for i in symset]
+        ent = np.sum([p * np.log2(1.0 / p) for p in propab])
+        return ent
+
+    def entropy_fast(self, im:np.array):
+        '''
+        function returns entropy of a signal
+        signal must be a 1-D numpy array
+        '''
+        im = im.flatten()
+        lensig = im.size
+        symset = list(set(im))
+        propab = [np.size(im[im == i]) / (1.0 * lensig) for i in symset]
+        ent = np.sum([p * np.log2(1.0 / p) for p in propab])
+        return ent
+
+
+    def convert(self, im, type='') -> np.array:
         """ Curve, Line Tally image conversion method
 
         import matplotlib.pyplot as plt
@@ -233,23 +305,60 @@ class K_Means(object):
         Gy = filters.filter_2d(gray_im, Ky)
         # Compute Gradient Magnitude and Direction:
         G_magnitude = np.sqrt(Gx ** 2 + Gy ** 2)
+        # Arctan2 works a little better here, allowing us to avoid dividing by zero:
+        G_direction = np.arctan2(Gy, Gx)
+
+        ### Pre Process Image
+        # Get the entropy
+        entropy_im = self.entropy_of_im(G_magnitude)
+        entropy_im = np.flip(entropy_im, axis=0)
+        entropy = np.average(entropy_im.flatten())
+        print(entropy)
+        #
+
+
         ### Set up the accumulator
         # How many bins for each variable in parameter space?
         phi_bins = 128
         theta_bins = 128
-        edge_im = G_magnitude > PARAMS['G_MAG_MIN'] + \
-                  np.average(np.array(im).flatten()) * PARAMS['G_MAG_AVERAGE_ADJUST'] + \
-                  np.median(np.array(im).flatten()) * PARAMS['G_MAG_MEDIAN_ADJUST']
+        edge_im = G_magnitude > \
+                  np.max(G_magnitude) * PARAMS['G_MAG_MAX_ADJUST'] +           \
+                  np.average(np.array(G_magnitude).flatten()) * PARAMS['G_MAG_AVERAGE_ADJUST'] + \
+                  np.median(np.array(G_magnitude).flatten()) * PARAMS['G_MAG_MEDIAN_ADJUST']
+        edge_direction_im = np.zeros(G_magnitude.shape) * np.NaN  # Create empty array o
+        edge_direction_im[edge_im] = G_direction[edge_im]
         rho_min = -edge_im.shape[0]
         rho_max = edge_im.shape[1]
+
         # Compute the rho and theta values for the grids in our accumulator:
         ha = HoughAccumulator(theta_bins, phi_bins, phi_min=rho_min, phi_max=rho_max)
         y_coords, x_coords = np.where(edge_im)
-        accumulator = ha.accumulate(x_coords, y_coords)
-        ### Set up curve and line detection
-        curves = self.count_curves(accumulator)
+        accumulator = ha.accumulatev2(x_coords, y_coords)
+
+        if type != '':
+            import matplotlib.pyplot as plt
+            # plt.imshow(gray_im)
+            # plt.title(type)
+            # plt.show()
+            # plt.imshow(G_magnitude)
+            # plt.title(type)
+            # plt.show()
+            # plt.imshow(edge_im)
+            # plt.title(type)
+            # plt.show()
+            # plt.imshow(accumulator)
+            # plt.title(type)
+            # plt.show()
+            self.imshow_with_values(entropy_im)
+            plt.title(type)
+            plt.show()
+
+        ### Set the features we need
+
+        # Set up curve and line detection
+        curves, curve_groups = self.count_curves(accumulator)
         # y_coords, x_coords = np.where(accumulator > CONSTANTS['LINE_ACCUMULATOR_THRESH'])
-        lines = self.count_lines(accumulator)
+        lines, line_groups = self.count_lines(accumulator)
         print('Done!')
         return [curves, lines]
 
@@ -277,16 +386,20 @@ class K_Means(object):
         y_coords, x_coords = np.where(line_detected_accumulator)
         ### Get the final accumulator with the curves
         # The first round of hough found lines, second round finds curves
-        accumulator = ha.accumulate(x_coords, y_coords)
+        accumulator = ha.accumulatev2(x_coords, y_coords)
         ### Get the filtered version and then group them
-        filtered_groups = accumulator > np.max(accumulator) - np.std(accumulator) + PARAMS['CURVE_ADJUST']
+        filtered_groups = accumulator > np.max(accumulator) - np.std(accumulator) * PARAMS['CURVE_ADJUST']
         y_coords, x_coords = np.where(filtered_groups)
         ### Get the number of connected components
         return self.group(y_coords, x_coords)
 
     def count_lines(self, line_detected_accumulator):
-        return np.sum(line_detected_accumulator > np.max(line_detected_accumulator) -
-                      np.std(line_detected_accumulator)) + PARAMS['LINE_ADJUST']
+        filtered_groups = line_detected_accumulator > np.max(line_detected_accumulator) - \
+                          np.median(line_detected_accumulator[np.nonzero(line_detected_accumulator)]) * PARAMS['LINE_ADJUST']
+
+        y_coords, x_coords = np.where(filtered_groups)
+
+        return self.group(y_coords, x_coords)
 
     def has_connection(self, group1, group2=None, x=None, y=None):
         if group2 is not None:
@@ -314,7 +427,42 @@ class K_Means(object):
 
         ### Group the groups
         values = list(map(lambda x: x, groups))
-        new_groups = [[y for y in groups if self.has_connection(y, x)] for x in values]
-        new_groups = set(map(tuple, [list(map(tuple, [map(tuple, _2) for _2 in _])) for _ in new_groups]))
+        new_groups = [[y for y in groups if self.has_connection(y, x)][0] for x in values]
+        new_groups = list(set(map(tuple, [set(map(tuple, _)) for _ in new_groups])))
+        # Do a second pass
+        values = list(map(lambda x: x, new_groups))
+        new_groups = [[y for y in new_groups if self.has_connection(y, x)][0] for x in values]
+        new_groups = list(set(map(tuple, [set(map(tuple, _)) for _ in new_groups])))
 
-        return len(new_groups)
+        return len(new_groups), new_groups
+
+    def imshow_with_values(self, data: np.array):
+        size = data.shape[0]
+        import matplotlib.pyplot as plt
+        # Limits for the extent
+        x_start = 3.0
+        x_end = 9.0
+        y_start = 6.0
+        y_end = 12.0
+
+        extent = [x_start, x_end, y_start, y_end]
+
+        # The normal figure
+        fig = plt.figure(figsize=(16, 12))
+        ax = fig.add_subplot(111)
+        im = ax.imshow(data, extent=extent, origin='lower', interpolation='None', cmap='viridis')
+
+        # Add the text
+        jump_x = (x_end - x_start) / (2.0 * size)
+        jump_y = (y_end - y_start) / (2.0 * size)
+        x_positions = np.linspace(start=x_start, stop=x_end, num=size, endpoint=False)
+        y_positions = np.linspace(start=y_start, stop=y_end, num=size, endpoint=False)
+
+        for y_index, y in enumerate(y_positions):
+            for x_index, x in enumerate(x_positions):
+                label = round(data[y_index, x_index], 2)
+                text_x = x + jump_x
+                text_y = y + jump_y
+                ax.text(text_x, text_y, label, color='black', ha='center', va='center',
+                        fontsize=20)
+        fig.colorbar(im)

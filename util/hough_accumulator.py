@@ -59,6 +59,31 @@ class HoughAccumulator(object):
 
         return self.accumulator
 
+    def accumulatev2(self, x_coords: list, y_coords: list):
+        '''
+        Iterate through x and y coordinates, accumulate in hough space, and return.
+        Args:
+        x_coords = x-coordinates of points to transform
+        y_coords = y-coordinats of points to transform
+
+        Returns:
+        accumulator = numpy array of accumulated values.
+        '''
+        def accumulate_x(curve_prho):
+            def j_is_valid(curve_prho) -> list:
+                return [j for j in range(len(self.thetas)) if np.min(abs(curve_prho[j] - self.rhos)) <= 1.0]
+
+            self.accumulator[[np.argmin(abs(curve_prho[j] - self.rhos)) for j in j_is_valid(curve_prho)],
+                             j_is_valid(curve_prho)] += 1
+
+        def get_curve_rho(index, x_coords, y_coords):
+            return x_coords[index] * np.cos(self.thetas) + y_coords[index] * np.sin(self.thetas)
+
+        for i in range(len(x_coords)):
+            accumulate_x(get_curve_rho(i, x_coords, y_coords))
+
+        return self.accumulator
+
     def clear_accumulator(self):
         '''
         Zero out accumulator

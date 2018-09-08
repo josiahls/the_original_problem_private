@@ -9,14 +9,15 @@ from scipy import stats
 import numpy as np
 from challenge.josiah_laivins import classify, K_Means
 from challenge.Logger import Logger
-import challenge
+from challenge import josiah_laivins
 
 PARAMS = {
-    'G_MAG_MIN': [1.0, 0.0, 0.2, 0.5, 0.8, 1.2, 1.5, 1.8, 2],
-    'G_MAG_AVERAGE_ADJUST': [0.0, 0.2, 0.5, 0.8, 1],
-    'G_MAG_MEDIAN_ADJUST': [0.0, 0.2, 0.5, 0.8, 1],
-    'CURVE_ADJUST': [0, -5, -10, 5, 10, -15, 15],
-    'LINE_ADJUST': [0, -5, -10, 5, 10, -15, 15]
+    'G_MAG_MAX_ADJUST':[.5],
+    'G_MAG_AVERAGE_ADJUST': [0.0],#, 0.5, 1],
+    'G_MAG_MEDIAN_ADJUST': [0.0],#, 0.5, 1],
+    'G_MAG_ENTROPY_AVERAGE_ADJUST': [10.41],#, 0.5, 1],
+    'CURVE_ADJUST': [1],#, -1.5, -.5, .5, 1.5],
+    'LINE_ADJUST': [1.5]#, -1.5, -.5, .5, 1.5]
 }
 
 
@@ -30,9 +31,9 @@ class Tester(object):
         self.params = {}
 
         # Specify file types that access
-        self.CATEGORY_LIST = ['easy']
+        self.CATEGORY_LIST = ['easy', 'hard', 'medium_1', 'medium_2']
         self.OBJECT_TYPE = ['ball', 'brick', 'cylinder']
-        self.FILE_NAME = ['ball_5.jpg', 'brick_3.jpg',  'cylinder_3.jpg']
+        self.FILE_NAME = ['brick_2.jpg', 'brick_3.jpg']# ['ball_1.jpg', 'brick_3.jpg', 'cylinder_3.jpg']
 
         self.LOG = {
             'easy': copy.deepcopy(self.CATEGORIES),
@@ -48,7 +49,7 @@ class Tester(object):
 
     def run(self):
         # Set the parameters
-        challenge.josiah_laivins.PARAMS = self.params
+        josiah_laivins.PARAMS = self.params
         clf = self.train(self.CATEGORY_LIST, self.OBJECT_TYPE, self.FILE_NAME)
         self.test(self.CATEGORY_LIST, self.OBJECT_TYPE, self.FILE_NAME, clf)
 
@@ -86,7 +87,7 @@ class Tester(object):
                     except FileNotFoundError:
                         continue
 
-                    data.append([image_type, im])
+                    data.append([image_type, im, category])
 
         clf = K_Means(labels=object_type)
         clf.fit(data)
@@ -168,7 +169,7 @@ if __name__ == '__main__':
         logger.print_all()
         logger.show_accuracy_comparison()
         logger.set_batch(str({key: combination[i] for i, key in enumerate(PARAMS)}) +
-                         str(challenge.josiah_laivins.CENTROIDS))
+                         str(josiah_laivins.CENTROIDS))
         logger.show_batch()
     logger.batch_save()
     logger.save()
