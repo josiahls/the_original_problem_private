@@ -12,10 +12,10 @@ from challenge.Logger import Logger
 from challenge import josiah_laivins
 
 PARAMS = {
-    'G_MAG_MAX_ADJUST':[.5],
+    'G_MAG_MAX_ADJUST':[.2],
     'G_MAG_AVERAGE_ADJUST': [0.0],#, 0.5, 1],
     'G_MAG_MEDIAN_ADJUST': [0.0],#, 0.5, 1],
-    'G_MAG_ENTROPY_AVERAGE_ADJUST': [10.41],#, 0.5, 1],
+    'G_MAG_ENTROPY_AVERAGE_ADJUST': [11.8],#, 0.5, 1],
     'CURVE_ADJUST': [1],#, -1.5, -.5, .5, 1.5],
     'LINE_ADJUST': [1.5]#, -1.5, -.5, .5, 1.5]
 }
@@ -31,9 +31,9 @@ class Tester(object):
         self.params = {}
 
         # Specify file types that access
-        self.CATEGORY_LIST = ['easy', 'hard', 'medium_1', 'medium_2']
+        self.CATEGORY_LIST = ['medium_1']#['easy', 'hard', 'medium_1', 'medium_2']
         self.OBJECT_TYPE = ['ball', 'brick', 'cylinder']
-        self.FILE_NAME = ['brick_2.jpg', 'brick_3.jpg']# ['ball_1.jpg', 'brick_3.jpg', 'cylinder_3.jpg']
+        self.FILE_NAME = []#['ball_8.jpg', 'brick_8.jpg', 'cylinder_8.jpg']
 
         self.LOG = {
             'easy': copy.deepcopy(self.CATEGORIES),
@@ -51,6 +51,8 @@ class Tester(object):
         # Set the parameters
         josiah_laivins.PARAMS = self.params
         clf = self.train(self.CATEGORY_LIST, self.OBJECT_TYPE, self.FILE_NAME)
+
+        #self.CATEGORY_LIST = ['easy', 'hard', 'medium_1', 'medium_2']
         self.test(self.CATEGORY_LIST, self.OBJECT_TYPE, self.FILE_NAME, clf)
 
     def eval_entropy(self, im: np.array):
@@ -153,6 +155,16 @@ class Tester(object):
                 average += a
                 print(f'\t{label} is ' + str(a))
             print(f'\t{name} is : {average/len(self.LOG[category])}')
+
+        ### Show max of each category
+        for category in self.LOG:
+            maximum = 0
+            print(f'{name} for {category} is: ')
+            for label in self.LOG[category]:
+                a = np.max(self.LOG[category][label])
+                maximum = maximum if a < maximum else a
+                print(f'\t{label} is ' + str(a))
+            print(f'\t{name} is : {maximum/len(self.LOG[category])}')
 
     def set_params(self, params: dict):
         self.params = params
